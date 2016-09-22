@@ -1,5 +1,5 @@
 import sys
-
+import psycopg2
 from sqlalchemy import Column, ForeignKey, Integer, String
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import relationship
@@ -54,7 +54,7 @@ class MenuItem(Base):
 
 
 ### INSERT AT END OF FILE ###
-engine = create_engine('sqlite:///restaurantmenu.db')
+engine = create_engine('postgresql+psycopg2://vagrant:vagrant@localhost:5432/catalog')
 Base.metadata.create_all(engine)
 Base.metadata.bind = engine
 DBSession = sessionmaker(bind = engine)

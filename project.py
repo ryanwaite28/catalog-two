@@ -1,10 +1,12 @@
 from flask import Flask, make_response, g
 from flask import render_template, url_for, request, redirect, flash, jsonify
 from flask import session as login_session
-import random, string
+import random, string, sys, os
+import psycopg2
 from functools import wraps
 
 app = Flask(__name__)
+app.secret_key = 'a9u33ch7d9had9a7'
 
 # -------------
 
@@ -20,13 +22,15 @@ import httplib2
 import json
 import requests
 
-engine = create_engine('sqlite:///restaurantmenu.db')
+engine = create_engine('postgresql+psycopg2://vagrant:vagrant@localhost:5432/catalog')
 Base.metadata.bind = engine
 DBSession = sessionmaker(bind = engine)
 session = DBSession()
 
-CLIENT_ID = json.loads(
-    open('client_secret.json', 'r').read())['web']['client_id']
+current_dir = os.path.dirname(os.path.abspath(__file__))
+
+CLIENT_ID = json.loads(open(current_dir + '/client_secret.json', 'r').read())['web']['client_id']
+
 APPLICATION_NAME = "Restaurant Menu"
 
 # --------------------
@@ -70,7 +74,7 @@ def gconnect():
 
     try:
         # Upgrade the authorization code into a credentials object
-        oauth_flow = flow_from_clientsecrets('client_secret.json', scope='')
+        oauth_flow = flow_from_clientsecrets(current_dir + '/client_secret.json', scope='')
         oauth_flow.redirect_uri = 'postmessage'
         credentials = oauth_flow.step2_exchange(code)
     except FlowExchangeError:
@@ -128,6 +132,7 @@ def gconnect():
     login_session['username'] = data['name']
     login_session['picture'] = data['picture']
     login_session['email'] = data['email']
+    login_session['access_token'] = credentials.access_token
 
     output = ''
     output += '<h1>Welcome, '
@@ -148,12 +153,12 @@ def gdisconnect():
     ''' Checks If There Is a User Currently Logged In.
     If So, Request Google To Sign Out Then Delete Session Info '''
 
-    if 'access_token' in login_session:
-        access_token = login_session['access_token']
+    if 'credentials' in login_session:
+        access_token = login_session['credentials']
     else:
         access_token = None
 
-    print 'In gdisconnect access token is %s', access_token
+    print 'In gdisconnect access token is %s' % access_token
     print 'User name is: '
     print login_session['username']
     if access_token is None:
@@ -161,13 +166,13 @@ def gdisconnect():
     	response = make_response(json.dumps('Current user not connected.'), 401)
     	response.headers['Content-Type'] = 'application/json'
     	return response
-    url = 'https://accounts.google.com/o/oauth2/revoke?token=%s' % login_session['access_token']
+    url = 'https://accounts.google.com/o/oauth2/revoke?token=%s' % login_session['credentials']
     h = httplib2.Http()
     result = h.request(url, 'GET')[0]
     print 'result is '
     print result
     if result['status'] == '200':
-	del login_session['access_token']
+	del login_session['credentials']
     	del login_session['gplus_id']
     	del login_session['username']
     	del login_session['email']
@@ -185,8 +190,7 @@ def gdisconnect():
 
 @app.route('/')
 def homePage():
-	''' Loads Restaurants and MenuItems, Then Render Them
-	To The Home Page '''
+
     restaurants = session.query(Restaurant).all()
     items = session.query(MenuItem).all()
 
@@ -370,8 +374,9 @@ def restaurantMenuJSON(restaurant_id):
 
 
 # ------------- #
-
+'''
 if __name__ == '__main__':
     app.secret_key = 'superkey'
     app.debug = True
     app.run( host = '0.0.0.0' , port = 5000 )
+'''

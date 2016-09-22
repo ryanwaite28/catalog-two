@@ -73,6 +73,10 @@
   color: white;
 }
 
+#top-list li:hover a {
+  color: white;
+}
+
 #grand-container {
   padding-top: 100px;
 }
